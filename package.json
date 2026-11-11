@@ -1,6 +1,6 @@
 {
   "name": "cuebox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tiny transparent on-screen box that shows short messages sent from anywhere.",
   "main": "src/main.js",
   "scripts": {

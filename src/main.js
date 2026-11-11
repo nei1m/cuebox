@@ -11,7 +11,15 @@ let editMode = false;
 let history = [];
 let idx = -1;
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// Only one copy may run. If one is already alive (it lives in the tray, so closing the
+// settings window does NOT quit it), a second launch must surface the first instead of
+// silently exiting -- that silent exit looked like "won't reopen".
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+}
+app.on("second-instance", () => {
+  if (app.isReady()) openSettings();
+});
 
 function createOverlay() {
   overlay = new BrowserWindow({
@@ -91,12 +99,23 @@ function connect() {
   sub = relay.subscribe(S.server, S.room, onIncoming, (st) => { status = st; buildTray(); });
 }
 
+// Bring a window to the front even when Windows refuses to let a background process steal focus.
+function raise(win) {
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.setAlwaysOnTop(true);
+  win.focus();
+  win.moveTop();
+  setTimeout(() => { if (!win.isDestroyed()) win.setAlwaysOnTop(false); }, 400);
+}
+
 function openSettings() {
-  if (settingsWin && !settingsWin.isDestroyed()) return settingsWin.focus();
+  if (settingsWin && !settingsWin.isDestroyed()) return raise(settingsWin);
   settingsWin = new BrowserWindow({
-    width: 560, height: 760, title: "Cuebox settings", autoHideMenuBar: true,
+    width: 560, height: 760, title: "Cuebox settings", autoHideMenuBar: true, show: false,
     webPreferences: { preload: path.join(__dirname, "preload.js") },
   });
+  settingsWin.once("ready-to-show", () => raise(settingsWin));
   settingsWin.loadFile(path.join(__dirname, "settings.html"));
 }
 
@@ -122,7 +141,7 @@ function buildTray() {
     { label: "Show test message", click: () => show("Test: Q1D") },
     { label: "Settings…", click: openSettings },
     { type: "separator" },
-    { label: "Quit", click: () => app.quit() },
+    { label: "Quit", click: () => { globalShortcut.unregisterAll(); app.exit(0); } },
   ]);
   if (!tray) {
     const img = nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGElEQVQ4jWNgGAWjYBSMglEwCkbBKBgFAAAEEAABkE8KkwAAAABJRU5ErkJggg==");
@@ -163,12 +182,13 @@ ipcMain.on("move", (_e, { x, y }) => {
 ipcMain.handle("overlay:bounds", () => overlay && overlay.getBounds());
 
 app.whenReady().then(() => {
+  if (!app.hasSingleInstanceLock()) return;
   S = settings.load();
   createOverlay();
   buildTray();
   registerKeys();
   connect();
-  if (!S.room) openSettings();
+  openSettings(); // every launch shows a window, so it is obvious the app started (it otherwise lives only in the tray)
 });
 app.on("window-all-closed", (e) => e.preventDefault());
 app.on("will-quit", () => globalShortcut.unregisterAll());
