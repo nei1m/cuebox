@@ -1,0 +1,22 @@
+{
+  "name": "cuebox",
+  "version": "0.1.0",
+  "description": "Tiny transparent on-screen box that shows short messages sent from anywhere.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test:relay": "node scripts/relay-test.js",
+    "dist": "electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "dev.cuebox.app",
+    "productName": "Cuebox",
+    "files": ["src/**/*", "package.json"],
+    "win": { "target": "portable" }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

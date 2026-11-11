@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cuebox sender</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#111;color:#eee;max-width:480px;margin:40px auto;padding:0 16px}
+  input{width:100%;box-sizing:border-box;padding:12px;font-size:18px;background:#222;border:1px solid #444;color:#fff;border-radius:8px;margin:6px 0}
+  button{padding:12px 18px;font-size:16px;border:0;border-radius:8px;background:#3b82f6;color:#fff}
+  small{color:#888}
+</style></head>
+<body>
+<h3>Cuebox sender</h3>
+<small>Room</small><input id="room" placeholder="cuebox-xxxxxxxx">
+<small>Message</small><input id="msg" placeholder="Q1D" autofocus>
+<button id="go">Send</button> <span id="st"></span>
+<script>
+  const room=document.getElementById("room"),msg=document.getElementById("msg"),st=document.getElementById("st");
+  room.value=localStorage.getItem("room")||"";
+  async function send(){
+    if(!room.value||!msg.value)return; localStorage.setItem("room",room.value);
+    try{ const r=await fetch("https://ntfy.sh/"+encodeURIComponent(room.value.trim()),{method:"POST",body:msg.value});
+      st.textContent=r.ok?"sent ✓":"error "+r.status; if(r.ok)msg.value=""; }catch(e){st.textContent="failed";}
+    msg.focus();
+  }
+  document.getElementById("go").onclick=send;
+  msg.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+</script></body></html>

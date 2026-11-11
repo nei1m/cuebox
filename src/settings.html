@@ -1,0 +1,88 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Cuebox settings</title>
+<style>
+  body{font-family:system-ui,"Segoe UI",sans-serif;background:#18181b;color:#e4e4e7;margin:0;padding:20px}
+  h2{margin:18px 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#8b8b94}
+  label{display:block;margin:10px 0 4px;font-size:13px}
+  input[type=text],input[type=number]{width:100%;box-sizing:border-box;background:#27272a;border:1px solid #3f3f46;color:#fff;padding:7px 9px;border-radius:6px}
+  input[type=range]{width:100%}
+  .row{display:flex;gap:8px;align-items:center}
+  .row>*{flex:1}
+  button{background:#3b82f6;border:0;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer}
+  button.sec{background:#3f3f46}
+  .key{cursor:pointer;text-align:center;background:#27272a;border:1px solid #3f3f46;border-radius:6px;padding:7px 4px;font-size:12px;min-height:16px}
+  .key.rec{border-color:#3b82f6;color:#3b82f6}
+  .key:empty::before{content:"(none)";color:#666}
+  small{color:#8b8b94}
+  #msg{margin-left:10px;color:#4ade80}
+</style></head>
+<body>
+<h2>Connection</h2>
+<label>Room (shared secret — sender and receiver use the same one)</label>
+<div class="row"><input type="text" id="room"><button class="sec" id="gen" style="flex:0 0 auto">Generate</button></div>
+<label>Server</label><input type="text" id="server">
+
+<h2>Look</h2>
+<label>Show for <span id="dv"></span> s</label><input type="range" id="duration" min="0.5" max="15" step="0.5">
+<label>Box opacity <span id="ov"></span></label><input type="range" id="bgOpacity" min="0" max="1" step="0.05">
+<label>Font size <span id="fv"></span> px</label><input type="range" id="fontSize" min="12" max="140" step="1">
+<div class="row"><div><label>Text color</label><input type="color" id="textColor"></div><div><label>Box color</label><input type="color" id="bgColor"></div></div>
+
+<h2>Keybinds <small>(click a slot, press the combo; Backspace clears; up to 3 each)</small></h2>
+<div id="keys"></div>
+<p><small>Tip: avoid bare keys like Shift+D — a global hotkey blocks that key in every app. Use Ctrl/Alt combos.</small></p>
+
+<p><button id="save">Save</button><span id="msg"></span></p>
+<script>
+const ACTIONS=[["prev","Previous message"],["next","Next message"],["edit","Toggle edit mode (move/resize)"],["send","Open quick-send box"]];
+let S, keys={};
+const $=id=>document.getElementById(id);
+function codeToKey(c){
+  if(/^Key[A-Z]$/.test(c))return c.slice(3);
+  if(/^Digit\d$/.test(c))return c.slice(5);
+  if(/^F\d{1,2}$/.test(c))return c;
+  const m={ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down",Space:"Space",Enter:"Return",Tab:"Tab",Minus:"-",Equal:"=",BracketLeft:"[",BracketRight:"]",Semicolon:";",Quote:"'",Comma:",",Period:".",Slash:"/",Backslash:"\\",Backquote:"`",Home:"Home",End:"End",PageUp:"PageUp",PageDown:"PageDown",Insert:"Insert",Delete:"Delete"};
+  if(/^Numpad\d$/.test(c))return "num"+c.slice(6);
+  return m[c]||null;
+}
+function renderKeys(){
+  const root=$("keys"); root.innerHTML="";
+  for(const [a,label] of ACTIONS){
+    const l=document.createElement("label"); l.textContent=label; root.appendChild(l);
+    const row=document.createElement("div"); row.className="row"; root.appendChild(row);
+    for(let n=0;n<3;n++){
+      const d=document.createElement("div"); d.className="key"; d.textContent=(keys[a]||[])[n]||""; row.appendChild(d);
+      d.onclick=()=>{
+        d.classList.add("rec"); d.textContent="press keys…";
+        const h=e=>{
+          e.preventDefault();
+          if(e.key==="Escape"){cleanup();return;}
+          if(e.key==="Backspace"){ (keys[a]=keys[a]||[])[n]=""; keys[a]=keys[a].filter((x,i)=>x||i<n); cleanup(); return;}
+          if(["Control","Shift","Alt","Meta"].includes(e.key))return;
+          const k=codeToKey(e.code); if(!k)return;
+          const mods=[]; if(e.ctrlKey)mods.push("Control"); if(e.altKey)mods.push("Alt"); if(e.shiftKey)mods.push("Shift"); if(e.metaKey)mods.push("Super");
+          keys[a]=keys[a]||[]; while(keys[a].length<n)keys[a].push("");
+          keys[a][n]=[...mods,k].join("+"); cleanup();
+        };
+        const cleanup=()=>{removeEventListener("keydown",h,true);renderKeys();};
+        addEventListener("keydown",h,true);
+      };
+    }
+  }
+}
+(async()=>{
+  S=await cue.getSettings(); keys=JSON.parse(JSON.stringify(S.keys));
+  for(const k of ["room","server","duration","bgOpacity","fontSize","textColor","bgColor"]) $(k).value=S[k];
+  const upd=()=>{$("dv").textContent=$("duration").value;$("ov").textContent=$("bgOpacity").value;$("fv").textContent=$("fontSize").value;};
+  document.querySelectorAll("input[type=range]").forEach(i=>i.oninput=upd); upd();
+  renderKeys();
+  $("gen").onclick=async()=>{$("room").value=await cue.randomRoom();};
+  $("save").onclick=async()=>{
+    const next={room:$("room").value.trim(),server:$("server").value.trim()||"https://ntfy.sh",
+      duration:+$("duration").value,bgOpacity:+$("bgOpacity").value,fontSize:+$("fontSize").value,
+      textColor:$("textColor").value,bgColor:$("bgColor").value,
+      keys:Object.fromEntries(Object.entries(keys).map(([k,v])=>[k,v.filter(Boolean).slice(0,3)]))};
+    await cue.setSettings(next); $("msg").textContent="Saved ✓"; setTimeout(()=>$("msg").textContent="",2000);
+  };
+})();
+</script></body></html>

@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;height:100%;background:#1c1c1f;font-family:system-ui,"Segoe UI",sans-serif;overflow:hidden}
+  input{width:100%;height:100%;box-sizing:border-box;border:0;outline:0;background:transparent;color:#fff;font-size:22px;padding:0 16px}
+  #err{position:absolute;right:10px;top:4px;color:#f77;font-size:11px}
+</style></head>
+<body><input id="i" autofocus placeholder="Type message, Enter to send, Esc to cancel"><div id="err"></div>
+<script>
+  const i=document.getElementById("i");
+  i.addEventListener("keydown",async e=>{
+    if(e.key==="Escape") return cue.closeSend();
+    if(e.key==="Enter"&&i.value.trim()){
+      try{ await cue.send(i.value.trim()); cue.closeSend(); }
+      catch(err){ document.getElementById("err").textContent=String(err.message||err).replace(/^Error invoking remote method.*?: /,""); }
+    }
+  });
+</script></body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:transparent;font-family:system-ui,"Segoe UI",sans-serif;user-select:none}
+  #box{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+       border-radius:12px;opacity:0;transition:opacity .2s;padding:6px;box-sizing:border-box;word-break:break-word;line-height:1.1;font-weight:700}
+  #box.on{opacity:1}
+  body.edit #box{opacity:1;outline:2px dashed #4af;cursor:move;-webkit-app-region:no-drag}
+  #grip{display:none;position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,#4af 50%);border-bottom-right-radius:12px}
+  body.edit #grip{display:block}
+</style></head>
+<body>
+<div id="box"><span id="t"></span></div>
+<div id="grip"></div>
+<script>
+  const box=document.getElementById("box"), t=document.getElementById("t"), grip=document.getElementById("grip");
+  let timer=null, editing=false, cfg={};
+  function style(c){
+    cfg=c;
+    const hex=c.bgColor.replace("#","");
+    const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+    box.style.background=`rgba(${r},${g},${b},${c.bgOpacity})`;
+    box.style.color=c.textColor; box.style.fontSize=c.fontSize+"px";
+  }
+  cue.on("style",style);
+  cue.on("show",({text,duration})=>{
+    t.textContent=text; box.classList.add("on"); clearTimeout(timer);
+    if(!editing) timer=setTimeout(()=>box.classList.remove("on"),duration*1000);
+  });
+  cue.on("edit",on=>{
+    editing=on; document.body.classList.toggle("edit",on);
+    if(on){clearTimeout(timer);t.textContent="Drag me • corner to resize";}
+    else{t.textContent="";box.classList.remove("on");}
+  });
+  // drag + resize (window is click-through except in edit mode)
+  let mode=null,sx,sy,b0;
+  box.addEventListener("pointerdown",async e=>{ if(!editing)return; mode="move"; sx=e.screenX; sy=e.screenY; b0=await cue.getBounds(); box.setPointerCapture(e.pointerId);});
+  grip.addEventListener("pointerdown",async e=>{ if(!editing)return; e.stopPropagation(); mode="size"; sx=e.screenX; sy=e.screenY; b0=await cue.getBounds(); grip.setPointerCapture(e.pointerId);});
+  addEventListener("pointermove",e=>{
+    if(!mode||!b0)return;
+    const dx=e.screenX-sx, dy=e.screenY-sy;
+    if(mode==="move") cue.move(b0.x+dx,b0.y+dy); else cue.resize(b0.width+dx,b0.height+dy);
+  });
+  addEventListener("pointerup",()=>{mode=null;});
+  cue.getSettings().then(style);
+</script></body></html>
